@@ -1,0 +1,35 @@
+#!/bin/bash
+
+MYNAME=`basename $0`
+MYPATH=${0%/*}
+NODATEDUMP=1
+. ${MYPATH}/wsl-functions
+
+usage() {
+  ${WSCOLORERR}
+  cat <<EOF
+USAGE: $MYNAME XMLFilename ResultIndex PropertyName [AttributePattern...]
+
+ResultIndex is 1-based. Specify 0 to search for the last occurrence.
+One or two attributes may have the same pattern. For instance, attribute
+Name and attribute CreationClassName. The following example helps limit
+the response:
+
+This command returns the second instance of a node named 'Selector'
+and attribute 'ClassName' or "CreationClassName'
+  $ wxmlquery computersystemepr.xml 2 Selector ClassName
+
+This command returns the second instance of a node named 'Selector'
+and attribute 'Name'. 
+  $ wxmlquery computersystemepr.xml 2 Selector \"Name
+
+Requires: wsl
+EOF
+  $WSCOLORNORM
+  exit 1
+}
+
+[ $# -lt 3 ] && usage
+fSearchValueOf $@
+echo ${PVALUE}
+

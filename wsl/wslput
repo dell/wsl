@@ -1,0 +1,265 @@
+#!/bin/bash
+# ###########################################################################
+# Copyright (c) 2011, Dell Inc.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#    * Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+#    * Neither the name of Dell Inc. nor the names of its contributors
+#      may be used to endorse or promote products derived from this software
+#      without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL DELL INC. BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+# ###########################################################################
+# Authors: Chris A. Poblete
+# Version: 1.0.0
+# ###########################################################################
+
+MYNAME=`basename $0`
+WSENUMMAXELEM=512
+. ${0%/*}/wsl-functions
+
+usage() {
+  fUsageheader
+  cat <<EOF
+USAGE: $MYNAME CLASS PROP1=VAL1 [PROP2=VAL2 ...] [OPTIONS]
+
+Sends SOAP message with WS-MAN PUT command. This script may accept only 
+derived leaf classes unless you provide a CQL filter that can return a 
+single instance. CLASS may be a class name or an absolute class URI.
+CLASS should be the first input and at least one property-value pair.
+Enclose the value in double quotes when the value contains space.
+
+[OPTIONS]
+-filter "CQL"       - Apply CQL statement filter to enumeration
+-fragment           - Perform a fragment put, applies to only one property
+-ns NAMESPACE       - Explicitly add the NAMESPACE selector
+
+For array properties, specify prop=value for each index.
+
+${CommonUsage1}
+EOF
+  $WSCOLORNORM
+  exit 1
+}
+
+which wget 2>&1 >/dev/null; [ $? -ne 0 ] && usage
+which xmllint 2>&1 >/dev/null; [ $? -ne 0 ] && usage
+
+[ $# -lt 2 ] && usage
+NameList=()
+ValueList=()
+CLASS=$1; shift
+index=0
+while [ ! -z "$1" ]; do
+  case "$1" in
+    -h|-help ) usage
+      ;;
+    -f|-filter ) shift; CQL="$1"
+      ;;
+    -F|-fragment ) FRAGMENT=1
+      ;;
+    -n|-ns ) shift; WSNS="$1"
+      ;;
+    * ) NameList[$index]=$(echo "$1" | cut -d '=' -f1 )
+      ValueList[$index]=$(echo "$1" | cut -d '=' -f2- )
+      index=$((index + 1))
+      ;;
+  esac
+  shift
+done
+
+# initializations
+fGetTarget
+fSetWGET
+fNormalizeClass
+
+[ ! -z "${CQL}" ] && CQLQUERY="<wsman:Filter Dialect='http://schemas.dmtf.org/wbem/cql/1/dsp0202.pdf'>${CQL}</wsman:Filter>"
+
+if [ ! -z "${WSNS}" ]; then
+REQSELECTORS=`cat <<EOF
+  <wsman:SelectorSet>
+    <wsman:Selector Name="__cimnamespace">${WSNS}</wsman:Selector>
+  </wsman:SelectorSet>
+EOF`
+fi
+
+dopullX() {
+  fGetUUID
+  fReqRspNext
+  cat <<EOF >${REQUESTFILE}
+${WSENVELOPEHEADER}
+  <s:Header>
+    <wsa:Action s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/enumeration/Pull</wsa:Action>
+    <wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+    <wsman:ResourceURI s:mustUnderstand="true">${CLASS}</wsman:ResourceURI>
+    <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
+    <wsa:ReplyTo>
+      <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
+    </wsa:ReplyTo>
+  </s:Header>
+  <s:Body>
+    <wsen:Pull>
+      <wsen:EnumerationContext>${CONTEXT}</wsen:EnumerationContext>
+      ${WSPULLMAXELEMSTR}
+    </wsen:Pull>
+  </s:Body>
+</s:Envelope>
+EOF
+  fNormalizeXML ${REQUESTFILE}
+  fDumpRequestFile
+  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fNormalizeXML ${RESPONSEFILE}
+  unset CONTEXT ; fGetValueOf ${RESPONSEFILE} "EnumerationContext" ; export CONTEXT=${PVALUE}
+  grep 'PullResponse' ${RESPONSEFILE} 2>&1 >/dev/null
+  export STAT=$?
+}
+
+doenumerateX() {
+  fGetUUID
+  fReqRspNext
+  cat <<EOF >${REQUESTFILE}
+${WSENVELOPEHEADER}
+  <s:Header>
+    <wsa:Action s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/enumeration/Enumerate</wsa:Action>
+    <wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+    <wsman:ResourceURI s:mustUnderstand="true">${CLASS}</wsman:ResourceURI>
+    <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
+    <wsa:ReplyTo>
+      <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
+    </wsa:ReplyTo>
+    ${REQSELECTORS}
+  </s:Header>
+  <s:Body>
+    <wsen:Enumerate>
+      ${WSENUMOPTIMIZEDSTR}
+      ${WSENUMMAXELEMSTR}
+      ${EPR}
+      ${CQLQUERY}
+    </wsen:Enumerate>
+  </s:Body>
+</s:Envelope>
+EOF
+  fNormalizeXML ${REQUESTFILE}
+  fDumpRequestFile
+  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fNormalizeXML ${RESPONSEFILE}
+  unset CONTEXT ; fGetValueOf ${RESPONSEFILE} "EnumerationContext" ; export CONTEXT=${PVALUE}
+  grep 'EnumerateResponse' ${RESPONSEFILE} 2>&1 >/dev/null
+  export STAT=$?
+}
+
+doenumerate() {
+  doenumerateX
+  [ ${OUTLEVEL} -ge 3 ] && ( $WSCOLORRSP; [ ${STAT} -ne 0 ] && $WSCOLORERR ; cat ${RESPONSEFILE} ; $WSCOLORNORM )
+  while [ ! -z "${CONTEXT}" ]; do
+    dopullX
+    [ ${OUTLEVEL} -ge 3 ] && ( $WSCOLORRSP; [ ${STAT} -ne 0 ] && $WSCOLORERR ; cat ${RESPONSEFILE} ; $WSCOLORNORM )
+    echo "(${CONTEXT})"
+  done
+}
+
+doput() {
+  fGetUUID
+  fReqRspNext
+cat <<EOF >${REQUESTFILE}
+${WSENVELOPEHEADER}
+  <s:Header>
+    <wsa:Action s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/transfer/Put</wsa:Action>
+    <wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+    <wsman:ResourceURI s:mustUnderstand="true">${RURI}</wsman:ResourceURI>
+    <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
+    ${FRAGMENTXFER}
+    <wsa:ReplyTo>
+      <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
+    </wsa:ReplyTo>
+    ${EPRSELECTORSTR}
+  </s:Header>
+  <s:Body>
+    ${PUTPAYLOAD}
+  </s:Body>
+</s:Envelope>
+EOF
+  fNormalizeXML ${REQUESTFILE}
+  fDumpRequestFile
+  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fNormalizeXML ${RESPONSEFILE}
+  grep "_OUTPUT" ${RESPONSEFILE} 2>&1 >/dev/null
+  export STAT=$?
+}
+
+echo "NOTE: Enumerate operation may take time to reply."
+
+EPR="<wsman:EnumerationMode>EnumerateObjectAndEPR</wsman:EnumerationMode>"
+WSENUMMAXELEM=256
+WSENUMOPTIMIZE=1
+fInitEnum
+
+doenumerate
+FileObjEpr="${RESPONSEFILE}"
+
+if [ ${STAT} -eq 0 ]; then
+  fGetEPRSELECTOR ${FileObjEpr}
+  if [ -z "${RCLASS}" ]; then
+    echo "Failed to extract ResourceURI from the response, verify class name and filter if any."
+    exit 1
+  fi
+  if [ ! -z "${FRAGMENT}" ]; then
+    FRAGMENTXFER="<wsman:FragmentTransfer s:mustUnderstand=\"true\">${NameList[0]}</wsman:FragmentTransfer>"
+    PUTPAYLOAD="<wsman:XmlFragment>"
+    for (( index = 0; index < ${#NameList[@]}; index++ )); do
+      Name=${NameList[$index]}
+      Value=${ValueList[$index]}
+      PUTPAYLOAD="${PUTPAYLOAD}<${Name}>${Value}</${Name}>"
+    done
+    PUTPAYLOAD="${PUTPAYLOAD}</wsman:XmlFragment>"
+  else
+    FileInstanceonly="${OUTPREFIX}/tmpinstanceonly.xml"
+    fGetInstanceToFile ${FileObjEpr} ${RCLASS} ${FileInstanceonly}
+    PUTPAYLOAD="<${NSPREFIX}:${RCLASS} xmlns:${NSPREFIX}=\"${RURI}\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
+    index=0
+    while read -e line ; do
+      if [ $index -lt ${#NameList[@]} ]; then
+        Name=${NameList[$index]}
+        if [ ` echo "${line}" | grep ":${Name}" ` ]; then
+          Value=${ValueList[$index]}
+          PUTPAYLOAD="${PUTPAYLOAD}<${NSPREFIX}:${Name}>${Value}</${NSPREFIX}:${Name}>"
+          index=$((index + 1))
+          continue
+        fi
+      fi
+      PUTPAYLOAD="${PUTPAYLOAD}${line}"
+    done < "${FileInstanceonly}"
+    PUTPAYLOAD="${PUTPAYLOAD}</${NSPREFIX}:${RCLASS}>"
+  fi
+
+  echo "NOTE: Invoke operation may take time to reply."
+  doput
+fi
+
+fDisplayResponse ${RESPONSEFILE}
+
+/bin/cp ${RESPONSEFILE} ${RETURNFILE}
+echo "Output is saved to ${RETURNFILE}"
+exit ${STAT} 
+
+# ###########################################################################
+# End of Code
+# ###########################################################################

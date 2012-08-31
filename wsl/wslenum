@@ -1,0 +1,250 @@
+#!/bin/bash
+# ###########################################################################
+# Copyright (c) 2011, Dell Inc.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#    * Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+#    * Neither the name of Dell Inc. nor the names of its contributors
+#      may be used to endorse or promote products derived from this software
+#      without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL DELL INC. BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+# ###########################################################################
+# Authors: Chris A. Poblete
+# Version: 1.0.0
+# ###########################################################################
+
+MYNAME=`basename $0`
+. ${0%/*}/wsl-functions
+
+usage() {
+  fUsageheader
+  cat <<EOF
+USAGE: $MYNAME CLASS [OPTIONS]
+
+Sends SOAP message with WS-MAN ENUMERATE command. CLASS may be a class name
+or an absolute class URI. 
+
+[OPTIONS]
+-associators        - Filter for associated instances of the given class*
+-dialect DIALECT    - Filter dialect, defaults to CQL.
+-ext                - Include CIM extension in the result
+-filter FILTER      - Apply filter to enumeration
+-inst FILENAME      - Contains class instance EPR (used only for associations)
+-mode {epr|objepr}  - Enumeration mode, default is "obj"
+-ns NAMESPACE       - Explicitly add the NAMESPACE selector
+-opti MAXELEM       - Optimize enumeration result with MAXELEM
+-references         - Filter for association instances of the given class*
+
+* associators and references require you to provide the class instance keys.
+These filters operate on a single instance of a class. Provide instance keys
+as name-value pairs KEY1=VAL1 [KEY2=VAL2 ...]
+
+${CommonUsage1}
+
+Examples:
+> $MYNAME CIM_ComputerSystem
+> $MYNAME CIM_ComputerSystem -mode epr
+> $MYNAME CIM_ComputerSystem -filter "select \* from CIM_ComputerSystem where Name='srv:system'"
+> $MYNAME Dell_BaseServerProfile -ns root/interop -mode epr -references InstanceID=Dell:reg5
+EOF
+  $WSCOLORNORM
+  exit 1
+}
+
+fCheckReqsOrUsage wget
+fCheckReqsOrUsage xmllint
+
+[ $# -lt 1 ] && usage
+while [ ! -z "$1" ]; do
+  case "$1" in
+    -h|-help ) usage
+      ;;
+    -a|-associators ) Assoc=1
+      ;;
+    -d|-dialect ) shift; Dialect="$1"
+      ;;
+    -e|-ext ) SHOWEXT='<wsman:OptionSet><wsman:Option Name="ShowExtensions"/></wsman:OptionSet>' 
+      ;;
+    -f|-filter ) shift; QFilter="$1"
+      ;;
+    -i|-inst ) shift; InstanceFile="$1"
+      ;;
+    -m|-mode ) shift; val="$1"
+      [ "${val}" = "epr" ] && EPR='<wsman:EnumerationMode>EnumerateEPR</wsman:EnumerationMode>'
+      [ "${val}" = "objepr" ] && EPR='<wsman:EnumerationMode>EnumerateObjectAndEPR</wsman:EnumerationMode>' 
+      ;;
+    -n|-ns ) shift; WSNS="$1"
+      ;;
+    -o|-opti ) shift; WSENUMMAXELEM="$1"; WSENUMOPTIMIZE=1
+      ;;
+    -r|-references ) Assoc=2
+      ;;
+    * ) echo "$1" | grep "=" >/dev/null
+      if [ $? -eq 0 ]; then
+        Name=$(echo "$1" | cut -d '=' -f1 )
+        Value=$(echo "$1" | cut -d '=' -f2- )
+        INSTANCESELECTOR="${INSTANCESELECTOR}<wsman:Selector Name=\"${Name}\">${Value}</wsman:Selector>"
+      else
+        CLASS="$1"
+      fi
+      ;;
+  esac
+  shift
+done
+
+# initializations
+fGetTarget
+fInitEnum
+fSetWGET
+fNormalizeClass
+
+[ -z "${Dialect}" ] && Dialect="http://schemas.dmtf.org/wbem/cql/1/dsp0202.pdf"
+
+[ ! -z "${QFilter}" ] && FQUERY="<wsman:Filter Dialect='${Dialect}'>${QFilter}</wsman:Filter>"
+
+if [ ! -z "${WSNS}" ]; then
+REQSELECTORS=`cat <<EOF
+  <wsman:SelectorSet>
+    <wsman:Selector Name="__cimnamespace">${WSNS}</wsman:Selector>
+  </wsman:SelectorSet>
+EOF`
+fi
+
+dopullX() {
+  fGetUUID
+  fReqRspNext
+  cat <<EOF >${REQUESTFILE}
+${WSENVELOPEHEADER}
+  <s:Header>
+    <wsa:Action s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/enumeration/Pull</wsa:Action>
+    <wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+    <wsman:ResourceURI s:mustUnderstand="true">${CLASS}</wsman:ResourceURI>
+    <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
+    <wsa:ReplyTo>
+      <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
+    </wsa:ReplyTo>
+  </s:Header>
+  <s:Body>
+    <wsen:Pull>
+      <wsen:EnumerationContext>${CONTEXT}</wsen:EnumerationContext>
+      ${WSPULLMAXELEMSTR}
+    </wsen:Pull>
+  </s:Body>
+</s:Envelope>
+EOF
+  fNormalizeXML ${REQUESTFILE}
+  fDumpRequestFile
+  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fNormalizeXML ${RESPONSEFILE}
+  unset CONTEXT ; fGetValueOf ${RESPONSEFILE} "EnumerationContext" ; export CONTEXT=${PVALUE}
+  grep 'PullResponse' ${RESPONSEFILE} 2>&1 >/dev/null
+  export STAT=$?
+}
+
+doenumerateX() {
+  fGetUUID
+  fReqRspNext
+  cat <<EOF >${REQUESTFILE}
+${WSENVELOPEHEADER}
+  <s:Header>
+    <wsa:Action s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/enumeration/Enumerate</wsa:Action>
+    <wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+    <wsman:ResourceURI s:mustUnderstand="true">${CLASS}</wsman:ResourceURI>
+    <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
+    <wsa:ReplyTo>
+      <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
+    </wsa:ReplyTo>
+    ${REQSELECTORS}
+    ${SHOWEXT}
+  </s:Header>
+  <s:Body>
+    <wsen:Enumerate>
+      ${WSENUMOPTIMIZEDSTR}
+      ${WSENUMMAXELEMSTR}
+      ${EPR}
+      ${FQUERY}
+    </wsen:Enumerate>
+  </s:Body>
+</s:Envelope>
+EOF
+  fNormalizeXML ${REQUESTFILE}
+  fDumpRequestFile
+  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fNormalizeXML ${RESPONSEFILE}
+  unset CONTEXT ; fGetValueOf ${RESPONSEFILE} "EnumerationContext" ; export CONTEXT=${PVALUE}
+  grep 'EnumerateResponse' ${RESPONSEFILE} 2>&1 >/dev/null
+  export STAT=$?
+}
+
+doenumerate() {
+  doenumerateX
+  fDisplayResponse ${RESPONSEFILE}
+  while [ ! -z "${CONTEXT}" ]; do
+    dopullX
+    fDisplayResponse ${RESPONSEFILE}
+    [ ! -z "${CONTEXT}" ] && [ ${OUTLEVEL} -ge 3 ] && echo "(${CONTEXT})"
+  done
+}
+
+if [ ! -z "${Assoc}" ]; then
+  [ ${Assoc} -eq 1 ] && Assoctype="AssociationInstances"
+  [ ${Assoc} -eq 2 ] && Assoctype="AssociatedInstances"
+  if [ ! -z "${InstanceFile}" ]; then
+    echo "using ${InstanceFile} to extract EPR XML for association filter"
+    fExtractEPRXML ${InstanceFile}
+    vBody="${EPRXML}"
+  else
+    if [ ! -z "${WSNS}" ]; then
+      INSTANCESELECTOR="${INSTANCESELECTOR}<wsman:Selector Name=\"__cimnamespace\">${WSNS}</wsman:Selector>"
+    fi
+    vBody=`cat <<EOF
+            <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
+            <wsa:ReferenceParameters>
+              <wsman:ResourceURI>${CLASS}</wsman:ResourceURI>
+              <wsman:SelectorSet>
+                ${INSTANCESELECTOR}
+              </wsman:SelectorSet>
+            </wsa:ReferenceParameters>
+EOF`
+  fi
+  FQUERY=`cat <<EOF
+      <wsman:Filter Dialect="http://schemas.dmtf.org/wbem/wsman/1/cimbinding/associationFilter" xmlns:wsmb="http://schemas.dmtf.org/wbem/wsman/1/cimbinding.xsd">
+        <wsmb:${Assoctype}>
+          <wsmb:Object>
+            ${vBody}
+          </wsmb:Object>
+        </wsmb:${Assoctype}>
+      </wsman:Filter>
+EOF`
+  CLASS="http://schemas.dmtf.org/wbem/wscim/1/*"
+fi
+
+echo "NOTE: Enumerate operation may take time to reply."
+doenumerate
+
+/bin/cp ${RESPONSEFILE} ${RETURNFILE}
+echo "Output is saved to ${RETURNFILE}"
+exit ${STAT}
+
+# ###########################################################################
+# End of Code
+# ###########################################################################
