@@ -1,19 +1,11 @@
 
 include VERSION
 
-myname=wsl
-
-all: packageit
-
-clean:
-	-/bin/rm response*xml request*.xml log.txt
-	-/bin/rm -rf dcim
-
-packageit: clean
-	mkdir dcim 
+packageit:
+	[ ! -d "dcim" ] && mkdir dcim 
 	cp -fpv * dcim  || true 
 	chmod a-w dcim/* 
-	tar -cvjf ../${myname}-${version}.tbz dcim/* --exclude "Makefile"
-	zip -u ../${myname}.zip ../${myname}-${version}.tbz 
+	tar -C dcim -cvjf ../wsl-${version}.tbz *wsl* wxml* LICENSE* 
+	zip -u ../wsl.zip ../wsl-${version}.tbz 
 	/bin/rm -rf dcim
 
