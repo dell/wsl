@@ -119,7 +119,20 @@ fNormalizeClass
 
 [ -z "${Dialect}" ] && Dialect="http://schemas.dmtf.org/wbem/cql/1/dsp0202.pdf"
 
-[ ! -z "${QFilter}" ] && FQUERY="<wsman:Filter Dialect='${Dialect}'>${QFilter}</wsman:Filter>"
+if [ ! -z "${QFilter}" ]; then 
+  echo ${Dialect} | grep -i selectorfilter >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+     FQUERY="<wsman:Filter Dialect='${Dialect}'><wsman:SelectorSet>"
+     for item in `echo "${QFilter}" | sed 's/,/ /g'`; do
+       name=$(echo ${item} | cut -d= -f1)
+       value=$(echo ${item} | cut -d= -f2-)
+       FQUERY="${FQUERY}<wsman:Selector Name=\"${name}\">${value}</wsman:Selector>"
+     done
+     FQUERY="${FQUERY}</wsman:SelectorSet></wsman:Filter>"
+  else
+     FQUERY="<wsman:Filter Dialect='${Dialect}'>${QFilter}</wsman:Filter>"
+  fi 
+fi
 
 if [ ! -z "${WSNS}" ]; then
 REQSELECTORS=`cat <<EOF
