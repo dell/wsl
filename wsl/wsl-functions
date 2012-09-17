@@ -346,6 +346,7 @@ fGetInstanceToFile() {
 fGetEPRSELECTOR() {
   file=$1
   cstate=0
+  unset eprstr
   while read -e line ; do
     llower=$(echo "${line}" | awk '{print tolower($0)}')
     if [ ` echo "${llower}" | grep ":referenceparameters" >/dev/null ; echo $? | grep 0 ` ]; then
@@ -368,6 +369,7 @@ fGetEPRSELECTOR() {
 fExtractEPRXML() {
   file=$1
   cstate=0
+  unset eprstr
   while read -e line ; do
     llower=$(echo "${line}" | awk '{print tolower($0)}')
     if [ ` echo "${llower}" | grep ":endpointreference" >/dev/null ; echo $? | grep 0 ` ]; then
