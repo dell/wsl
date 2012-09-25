@@ -72,6 +72,6 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Tue Sep 25 2012 Chris Poblete <chris_poblete@dell.com> - 1.0.0-1
+* Tue Sep 25 2012 Chris Poblete <chris_poblete@dell.com> - 0.1.0-1
 - initial version of WSL.
 

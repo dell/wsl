@@ -34,6 +34,8 @@
 
 MYNAME=`basename $0`
 WSENUMMAXELEM=512
+
+# source function library
 . ${0%/*}/wsl-functions
 
 usage() {
@@ -81,7 +83,7 @@ which xmllint 2>&1 >/dev/null; [ $? -ne 0 ] && usage
 [ $# -lt 2 ] && usage
 while [ ! -z "$1" ]; do
   case "$1" in
-    -h|-help ) usage
+    -h|-help|help ) usage
       ;;
     -i|-inst ) shift; InstanceFile="$1"
       ;;

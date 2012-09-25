@@ -35,7 +35,9 @@
 MYNAME=`basename $0`
 MYPATH=${0%/*}
 KEEPHISTORY=0
-. ${MYPATH}/wsl-functions
+
+# source function library
+. ${0%/*}/wsl-functions
 
 usage() {
   fUsageheader
@@ -52,6 +54,7 @@ EOF
 }
 
 [ $# -lt 1 ] && usage
+[ "$1" = "-h" -o "$1" = "-help" -o "$1" = "help" ] && usage
 credfile="$1"
 WSUSER="$2"
 WSPASS="$3"

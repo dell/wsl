@@ -34,6 +34,8 @@
 
 MYNAME=`basename $0`
 WSENUMMAXELEM=512
+
+# source function library
 . ${0%/*}/wsl-functions
 
 usage() {
@@ -70,7 +72,7 @@ CLASS=$1; shift
 index=0
 while [ ! -z "$1" ]; do
   case "$1" in
-    -h|-help ) usage
+    -h|-help|help ) usage
       ;;
     -f|-filter ) shift; CQL="$1"
       ;;

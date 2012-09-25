@@ -36,7 +36,9 @@ MYNAME=`basename $0`
 MYPATH=${0%/*}
 NODATEDUMP=1
 KEEPHISTORY=0
-. ${MYPATH}/wsl-functions
+
+# source function library
+. ${0%/*}/wsl-functions
 
 usage() {
   fUsageheader
@@ -83,8 +85,8 @@ getcert() {
   echo | openssl s_client -connect ${ipaddress}:443 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p'
 }
 
-#export WSENUMOPTIMIZE=1
-#export WSENUMMAXELEM=512
+export WSENUMOPTIMIZE=1
+export WSENUMMAXELEM=512
 
 [ $# -lt 1 ] && usage
 CMD="$1"; shift

@@ -33,6 +33,8 @@
 # ###########################################################################
 
 MYNAME=`basename $0`
+
+# source function library
 . ${0%/*}/wsl-functions
 
 usage() {
@@ -52,6 +54,7 @@ which wget 2>&1 >/dev/null; [ $? -ne 0 ] && usage
 which xmllint 2>&1 >/dev/null; [ $? -ne 0 ] && usage
 
 [ $# -lt 1 ] && usage
+[ "$1" = "-h" -o "$1" = "-help" -o "$1" = "help" ] && usage
 
 # initializations
 fGetTarget

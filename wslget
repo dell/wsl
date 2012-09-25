@@ -33,6 +33,8 @@
 # ###########################################################################
 
 MYNAME=`basename $0`
+
+# source function library
 . ${0%/*}/wsl-functions
 
 usage() {
@@ -55,7 +57,7 @@ which xmllint 2>&1 >/dev/null; [ $? -ne 0 ] && usage
 [ $# -lt 1 ] && usage
 while [ ! -z "$1" ]; do
   case "$1" in
-    -h|-help ) usage
+    -h|-help|help ) usage
       ;;
     * ) echo "$1" | grep '=' >/dev/null 2>&1
       if [ $? -ne 0 ]; then

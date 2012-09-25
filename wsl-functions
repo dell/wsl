@@ -34,36 +34,65 @@
 
 MYPATH="${0%/*}"
 
-MYCONFIG="wsl-config"
-[ -e "./${MYCONFIG}" ] && . ./${MYCONFIG}
-[ -e "~/${MYCONFIG}" ] && . ~/.${MYCONFIG}
-[ -e "${MYPATH}/${MYCONFIG}" ] && . ${MYPATH}/${MYCONFIG}
+MYCONFIG=".wsl-config"
+[ -e ${MYPATH}/${MYCONFIG} ] && . ${MYPATH}/${MYCONFIG}
+[ -e ~/${MYCONFIG} ] && . ~/${MYCONFIG}
+[ -e ./${MYCONFIG} ] && . ./${MYCONFIG}
 
 # **************************************************************
 # *****                                                    *****
 # *****         User configuration specification           *****
-# ***** To customize, define these in a "wsl-config file" *****
 # *****                                                    *****
 # **************************************************************
 
-# WGETTIMEOUTSECS - Wget timeout in seconds waiting for response. { 1...600} Default is 60.
-# WGETTRYNUM - Wget number of retry when there is no response. { 1...6 } Default is 1.
-# WSNOSSL - Use HTTP connection. Default is use HTTPS.
+if [ ! -e ~/${MYCONFIG} ]; then
+cat <<EOF > ~/${MYCONFIG}
+## NOTE: This is a generated file. See the accompanying README file for more info.
 
-# WSENUMOPTIMIZE - Optimized enumeration, required for WSENUMMAXELEM. Default is non-optimized.
-# WSENUMMAXELEM - Max number of instances in a response. { 1...1048576 } Default is 512.
-# WSDEFAULTSCHEMA - Schema prefix used for non-DMTF class. Default is "schemas.dell.com"
+## Timeout in seconds waiting for response. { 1...600} Default is 60.
+#WGETTIMEOUTSECS=60
 
-# IPINTERACTIVE - Always ask for IP address. Default is use history. 
-# KEEPHISTORY - Remember IP address and user credential. Default is keep history.
+## Number of retry when there is no response. { 1...6 } Default is 1.
+#WGETTRYNUM=1
 
-# DATETIMESTAMP - Display date-time stamp. Default is disabled.
-# FORMATDISPLAY - Formatted display of response XML. Default is disabled.
-# OUTLEVEL - Output level: 0=NoOutput, 1=ResponseOnly, 2=AddRequest, 3=AddMore. Default is 1.
+## Use HTTP connection. Default is use HTTPS. Uncomment var for HTTP.
+#WSNOSSL=true
 
-# OUTPREFIX - Output directory. Default is current directory.
-# LOGFILE - Log filename. Default is $OUTPREFIX/log.txt
-# RETURNFILE - Result XML filename. Default=$OUTPREFIX/response.xml 
+## Optimized enumeration, required for WSENUMMAXELEM. Default is non-optimized. Uncomment var for optmized.
+#WSENUMOPTIMIZE=true
+
+## Max number of instances in a response. { 1...1048576 } Default is 512.
+#WSENUMMAXELEM=512
+
+## Schema prefix used for non-DMTF class. Default is "schemas.dell.com"
+#WSDEFAULTSCHEMA="schemas.dell.com"
+
+## Interactive level: 0=NoAsk, 1=AskIPAddress, 2=AskIPandCredential. Default is 0.
+#IPINTERACTIVE=0
+
+## Remember IP address and user credential. Default is keep history. Uncomment var to prevent history use.
+#KEEPHISTORY=0
+
+## Display date-time stamp. Default is disabled.
+#DATETIMESTAMP=true
+
+## Formatted display of response XML. Default is disabled.
+#FORMATDISPLAY=true
+
+## Output level: 0=NoOutput, 1=ResponseOnly, 2=AddRequest, 3=AddMore. Default is 1.
+#OUTLEVEL=1
+
+## Output directory. Default is current directory.
+#OUTPREFIX=.
+
+## Log filename. Default is $OUTPREFIX/log.txt
+#LOGFILE="\$OUTPREFIX/log.txt"
+
+## Result XML filename. Default=$OUTPREFIX/response.xml
+#RETURNFILE="\$OUTPREFIX/response.xml"
+
+EOF
+fi
 
 # ***********************************************************
 # ***********************************************************
@@ -76,12 +105,25 @@ MYCONFIG="wsl-config"
 # ***********************************************************
 # ***********************************************************
 
+# Set defaults
+
 MYPNAME1="WSL"
 MYPNAME2="Wsman Shell commandLine"
 MYVERSION="0.1.5"
 
-[ ! -z "${DATETIMESTAMP}" ] && [ ${OUTLEVEL} -ge 3 ] && date
+[ -z "${OUTLEVEL}" ] && OUTLEVEL=1
+[ -z "${KEEPHISTORY}" ] && KEEPHISTORY=1
+[ -z "${OUTPREFIX}" ] && OUTPREFIX=.
+[ -z "${LOGFILE}" ] && LOGFILE=${OUTPREFIX}/log.txt
+[ -z "${RETURNFILE}" ] && RETURNFILE=${OUTPREFIX}/response.xml
+[ -z "${WSDEFAULTSCHEMA}" ] && WSDEFAULTSCHEMA="schemas.dell.com"
 
+export MYENV=${OUTPREFIX}/.wslrun
+export URIDEFAULT="http://${WSDEFAULTSCHEMA}/wbem/wscim/1/cim-schema/2"
+export URIDMTF="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2"
+export WSENVELOPEHEADER='<?xml version="1.0"?><s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsman="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" xmlns:wsen="http://schemas.xmlsoap.org/ws/2004/09/enumeration">'
+
+[ ! -z "${DATETIMESTAMP}" ] && [ ${OUTLEVEL} -ge 3 ] && date
 
 echo -en | grep '\-en' >/dev/null 2>&1
 if [ $? -ne 0 ]; then
@@ -100,9 +142,6 @@ else
   export WSCOLORNORM="echo -n "
 fi
 
-export URIDMTF="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2"
-export WSENVELOPEHEADER='<?xml version="1.0"?><s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsman="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" xmlns:wsen="http://schemas.xmlsoap.org/ws/2004/09/enumeration">'
-
 fUsageheader() {
   ${WSCOLORERR}
   cat <<EOF
@@ -117,19 +156,6 @@ CommonUsage1=`cat <<EOF
 Requires: wget, xmllint, GNU core utilities.
 Optional: xsltproc for output formatting, gpg for encrypted credential.
 EOF`
-
-# Here set the defaults
-
-[ -z "${OUTLEVEL}" ] && OUTLEVEL=1
-[ -z "${KEEPHISTORY}" ] && KEEPHISTORY=1
-[ -z "${OUTPREFIX}" ] && OUTPREFIX=.
-[ -z "${LOGFILE}" ] && LOGFILE=${OUTPREFIX}/log.txt
-[ -z "${RETURNFILE}" ] && RETURNFILE=${OUTPREFIX}/response.xml
-[ -z "${WSDEFAULTSCHEMA}" ] && WSDEFAULTSCHEMA="schemas.dell.com"
-
-export URIDEFAULT="http://${WSDEFAULTSCHEMA}/wbem/wscim/1/cim-schema/2"
-
-export MYENV=${OUTPREFIX}/.wslrun
 
 fInitWGET() {
   if [ -z "${WGETTIMEOUTSECS}" ] || [ ` echo "${WGETTIMEOUTSECS}" | grep "^[0-9]\{1,\}$" >/dev/null ; echo $? | grep -v '^0$' ` ]; then
@@ -437,13 +463,14 @@ fDisplayResponse() {
 }
 
 fGetTarget() {
-  ask=0
-  [ ! -z "${IPINTERACTIVE}" ] && ask=1
-  [ ! -z "${WSAUTOMATED}" ] && ask=0
-  fPromptUser $ask WSENDPOINT "IP address"
-  fPromptUser 0 WSUSER "User name"
+  askA=0 ; askB=0
+  [ "${IPINTERACTIVE}" = "1" ] && askA=1
+  [ "${IPINTERACTIVE}" = "2" ] && askA=1 && askB=1
+  [ ! -z "${WSAUTOMATED}" ] && askA=0 && askB=0
+  fPromptUser $askA WSENDPOINT "IP address"
+  fPromptUser $askB WSUSER "User name"
   echo "${WSUSER}" | grep "^FILE:" >/dev/null 2>&1
-  [ $? -ne 0 ] && fPromptUser 0 WSPASS "User password"
+  [ $? -ne 0 ] && fPromptUser $askB WSPASS "User password"
 }
 
 if [ "1" = "${KEEPHISTORY}" ]; then
