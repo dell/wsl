@@ -32,7 +32,7 @@
 # Version: 1.0.0
 # ###########################################################################
 
-MYPATH="${0%/*}"
+MYPATH=${0%/*}
 
 MYCONFIG=".wsl-config"
 [ -e ${MYPATH}/${MYCONFIG} ] && . ${MYPATH}/${MYCONFIG}
