@@ -55,6 +55,10 @@ install -m 644 %{_builddir}/%{name}-%{version}/README-wsl $RPM_BUILD_ROOT%{_defa
 install -m 644 %{_builddir}/%{name}-%{version}/VERSION $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
 install -m 644 %{_builddir}/%{name}-%{version}/wsl-config $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
 
+mkdir -p $RPM_BUILD_ROOT%{_mandir}/man1
+gzip %{_builddir}/%{name}-%{version}/wsl.1
+install -m 644 %{_builddir}/%{name}-%{version}/wsl.1.gz $RPM_BUILD_ROOT%{_mandir}/man1
+
 
 
 %clean
@@ -68,10 +72,15 @@ rm -rf $RPM_BUILD_ROOT
 
 %doc
 %{_defaultdocdir}/%{name}-%{version}
+%{_mandir}/man1/%{name}.1.*
+
 
 
 
 %changelog
+* Tue Oct  2 2012 Chris Poblete <chris_poblete@dell.com> - 0.1.7c-1
+- Added a man page for wsl
+
 * Tue Sep 25 2012 Chris Poblete <chris_poblete@dell.com> - 0.1.0-1
 - initial version of WSL.
 
