@@ -58,7 +58,7 @@ install -m 644 %{_builddir}/%{name}-%{version}/wsl.1 $RPM_BUILD_ROOT%{_mandir}/m
 
 
 %doc LICENSE README-wsl VERSION wsl-config
-%{_mandir}/man1/%{name}.1
+%{_mandir}/man1/%{name}.1.*
 
 
 
