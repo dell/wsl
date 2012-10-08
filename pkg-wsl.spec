@@ -8,8 +8,6 @@ License:	BSD
 URL:		http://linux.dell.com/files/%{name}
 Source0:	http://linux.dell.com/files/%{name}/%{name}-%{version}.tar.gz
 
-Vendor:		Dell Inc.
-
 Requires:	bash wget libxml2
 Requires:	gpg
 BuildArch:	noarch
