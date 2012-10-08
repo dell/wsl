@@ -27,7 +27,6 @@ CIM-style objects.
 
 
 %install
-rm -rf $RPM_BUILD_ROOT
 
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/%{name}
 install -m 644 %{_builddir}/%{name}-%{version}/wsl-functions $RPM_BUILD_ROOT/%{_sysconfdir}/%{name}
@@ -46,15 +45,9 @@ install -m 755 %{_builddir}/%{name}-%{version}/wslput $RPM_BUILD_ROOT/%{_bindir}
 install -m 755 %{_builddir}/%{name}-%{version}/wxmlgetvalue $RPM_BUILD_ROOT/%{_bindir}
 
 
-mkdir -p $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
-install -m 644 %{_builddir}/%{name}-%{version}/LICENSE $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
-install -m 644 %{_builddir}/%{name}-%{version}/README-wsl $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
-install -m 644 %{_builddir}/%{name}-%{version}/VERSION $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
-install -m 644 %{_builddir}/%{name}-%{version}/wsl-config $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
 
 mkdir -p $RPM_BUILD_ROOT%{_mandir}/man1
-gzip %{_builddir}/%{name}-%{version}/wsl.1
-install -m 644 %{_builddir}/%{name}-%{version}/wsl.1.gz $RPM_BUILD_ROOT%{_mandir}/man1
+install -m 644 %{_builddir}/%{name}-%{version}/wsl.1 $RPM_BUILD_ROOT%{_mandir}/man1
 
 
 
@@ -63,13 +56,18 @@ install -m 644 %{_builddir}/%{name}-%{version}/wsl.1.gz $RPM_BUILD_ROOT%{_mandir
 %{_bindir}/*
 %{_sysconfdir}/%{name}
 
+
 %doc LICENSE README-wsl VERSION wsl-config
-%{_mandir}/man1/%{name}.1.*
+%{_mandir}/man1/%{name}.1
 
 
 
 
 %changelog
+* Mon Oct  8 2012 Praveen K Paladugu <praveen_paladugu@dell.com> - 0.1.8-2
+- Removing the explicit installation of the doc files as the %doc macro will handle the same
+- Not zipping the man file, as the package build will handle it.
+
 * Mon Oct  8 2012 Praveen K Paladugu <praveen_paladugu@dell.com>- 0.1.8-1
 - Minor changes to spec file, following Fedora reviewer's suggestions.
 
