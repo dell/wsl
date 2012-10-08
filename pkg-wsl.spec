@@ -3,11 +3,10 @@ Version:	1.0.0
 Release:	1%{?dist}
 Summary:	Wsman Shell Command Line "whistle"
 
-Group:		System/Management
+Group:		Applications/System
 License:	BSD
 URL:		http://linux.dell.com/files/%{name}
 Source0:	http://linux.dell.com/files/%{name}/%{name}-%{version}.tar.gz
-BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 Vendor:		Dell Inc.
 
@@ -26,7 +25,7 @@ CIM-style objects.
 %prep
 %setup -q
 
-
+%build
 
 
 %install
@@ -61,23 +60,22 @@ install -m 644 %{_builddir}/%{name}-%{version}/wsl.1.gz $RPM_BUILD_ROOT%{_mandir
 
 
 
-%clean
-rm -rf $RPM_BUILD_ROOT
-
 
 %files
-%defattr(-,root,root,-)
 %{_bindir}/*
 %{_sysconfdir}/%{name}
 
-%doc
-%{_defaultdocdir}/%{name}-%{version}
+%doc LICENSE README-wsl VERSION wsl-config
 %{_mandir}/man1/%{name}.1.*
 
 
 
 
 %changelog
+* Mon Oct  8 2012 Praveen K Paladugu <praveen_paladugu@dell.com>- 0.1.8-1
+- Minor changes to spec file, following Fedora reviewer's suggestions.
+
+
 * Tue Oct  2 2012 Chris Poblete <chris_poblete@dell.com> - 0.1.7c-1
 - Added a man page for wsl
 
