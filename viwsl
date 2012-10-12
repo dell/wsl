@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# source function library
+. ${0%/*}/wsl-functions
+
+vi ${HOME}/${MYCONFIG}
+

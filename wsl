@@ -88,6 +88,8 @@ getcert() {
 export WSENUMOPTIMIZE=1
 export WSENUMMAXELEM=512
 
+[ "${ECHOCMD}" = "true" ] && echo -e "$0 $@"
+
 [ $# -lt 1 ] && usage
 CMD="$1"; shift
 case "${CMD}" in

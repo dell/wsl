@@ -105,14 +105,14 @@ EOF
   export STAT=$?
 }
 
-echo "NOTE: Get operation may take time to reply."
+[ ${OUTLEVEL} -ge 3 ] && echo "NOTE: Get operation may take time to reply."
 doget
 fNormalizeXML ${RESPONSEFILE}
 
 fDisplayResponse ${RESPONSEFILE}
 
 /bin/cp ${RESPONSEFILE} ${RETURNFILE}
-echo "Output is saved to ${RETURNFILE}"
+[ ${OUTLEVEL} -ge 3 ] && echo "Output is saved to ${RETURNFILE}"
 exit ${STAT}
 
 # ###########################################################################

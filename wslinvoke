@@ -121,7 +121,7 @@ while [ ! -z "$1" ]; do
   shift
 done
 
-[ ! -z "${PARAMLIST}" ] && echo -en "## ${PARAMLIST}\n\n"
+[ ! -z "${PARAMLIST}" ] && [ ${OUTLEVEL} -ge 3 ] && echo -en "## ${PARAMLIST}\n\n"
 
 # initializations
 fGetTarget
@@ -255,21 +255,21 @@ EOF
 if [ ! -z "${InstanceFile}" ]; then
   fGetEPRSELECTOR ${InstanceFile}
 else
-  echo "NOTE: Enumerate operation may take time to reply."
+  [ ${OUTLEVEL} -ge 3 ] && echo "NOTE: Enumerate operation may take time to reply."
   EPR="<wsman:EnumerationMode>EnumerateEPR</wsman:EnumerationMode>"
   doenumerate
   fGetEPRSELECTOR ${RESPONSEFILE}
 fi
 
 if [ ! -z "${EPRSELECTORSTR}" ]; then
-  echo "NOTE: Invoke operation may take time to reply."
+  [ ${OUTLEVEL} -ge 3 ] && echo "NOTE: Invoke operation may take time to reply."
   doinvoke 
 fi
 
 fDisplayResponse ${RESPONSEFILE}
 
 /bin/cp ${RESPONSEFILE} ${RETURNFILE}
-echo "Output is saved to ${RETURNFILE}"
+[ ${OUTLEVEL} -ge 3 ] && echo "Output is saved to ${RETURNFILE}"
 exit ${STAT} 
 
 # ###########################################################################

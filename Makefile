@@ -9,15 +9,16 @@ rpmspecdir=${packagesrc}/${packagename}
 standalonedir=dcim
 standalonesrc=${packagesrc}/${standalonedir}
 
-all: help
-
 help:
 	@echo ""
 	@echo "  distclean          - Remove files and directories created by make"
 	@echo "  standalonepack     - Create a stand alone tar package"
 	@echo "  rpmspec            - Create RPM package"
+	@echo "  all                - Calls standalonepack rpmspec"
 	@echo ""
 	@false
+
+all: standalonepack rpmspec
 
 distclean: rpmspecclean standalonepackclean
 	-/bin/rm -rf ${packagesrc}
@@ -28,7 +29,7 @@ rpmspecclean:
 	
 rpmspecprep: rpmspecclean
 	-/bin/mkdir -p ${rpmspecdir}
-	-/bin/cp -dv ${myname}* wxm* LIC* READ* VER* ${rpmspecdir}/
+	-/bin/cp -dv ${myname}* viwsl wxm* LIC* READ* VER* ${rpmspecdir}/
 	cat pkg-${myname}.spec | sed "s/Version:\s*1.0.0/Version:\t${version}/" > ${rpmspecdir}/${myname}.spec
 	cat wsl-functions | sed "s/MYVERSION=\"0.1.5\"/MYVERSION=\"${version}\"/" > ${rpmspecdir}/wsl-functions
 	for item in `ls -1 ${myname}* | grep -v 'wsl-'`; do cat $$item | sed "s/\$${0\%\/\*}\/wsl-functions/\/etc\/wsl\/wsl-functions/" >${rpmspecdir}/$$item ; chmod 755 ${rpmspecdir}/$$item ; done
@@ -43,7 +44,7 @@ standalonepackclean:
 
 standalonepack: standalonepackclean
 	-/bin/mkdir -p ${standalonesrc}
-	-/bin/cp -dv ${myname}* wxm* LIC* READ* VER* ${standalonesrc}/
+	-/bin/cp -dv ${myname}* viwsl wxm* LIC* READ* VER* ${standalonesrc}/
 	cat wsl-functions | sed "s/MYVERSION=\"0.1.5\"/MYVERSION=\"${version}\"/" > ${standalonesrc}/wsl-functions
 	chmod go-w ${standalonesrc}/* 
 	tar -C ${packagesrc} -cvjf ${packagedest}/${packagename}.tbz ${standalonedir}

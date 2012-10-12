@@ -207,7 +207,7 @@ EOF
   export STAT=$?
 }
 
-echo "NOTE: Enumerate operation may take time to reply."
+[ ${OUTLEVEL} -ge 3 ] && echo "NOTE: Enumerate operation may take time to reply."
 
 EPR="<wsman:EnumerationMode>EnumerateObjectAndEPR</wsman:EnumerationMode>"
 WSENUMMAXELEM=256
@@ -252,14 +252,14 @@ if [ ${STAT} -eq 0 ]; then
     PUTPAYLOAD="${PUTPAYLOAD}</${NSPREFIX}:${RCLASS}>"
   fi
 
-  echo "NOTE: Invoke operation may take time to reply."
+  [ ${OUTLEVEL} -ge 3 ] && echo "NOTE: Invoke operation may take time to reply."
   doput
 fi
 
 fDisplayResponse ${RESPONSEFILE}
 
 /bin/cp ${RESPONSEFILE} ${RETURNFILE}
-echo "Output is saved to ${RETURNFILE}"
+[ ${OUTLEVEL} -ge 3 ] && echo "Output is saved to ${RETURNFILE}"
 exit ${STAT} 
 
 # ###########################################################################

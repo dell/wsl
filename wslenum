@@ -168,7 +168,17 @@ ${WSENVELOPEHEADER}
 EOF
   fNormalizeXML ${REQUESTFILE}
   fDumpRequestFile
+  echo "wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE}" >>${LOGFILE} 
   wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+
+  ## check bug where server is sending HTTP/1.1 chunks when wget only supports HTTP/1.0 (RFC 2145)
+  grep ' chunk length ' ${RESPONSEFILE} >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    ## try to remove chunk junk
+    /bin/mv -f ${RESPONSEFILE} tmpfile
+    cat tmpfile | sed 's/^[0-9]*\; chunk length [0-9]*//' | tr -d "\n" | tr -d "\r" | sed 's/[0-9]*$//' >${RESPONSEFILE}
+  fi
+
   fNormalizeXML ${RESPONSEFILE}
   unset CONTEXT ; fGetValueOf ${RESPONSEFILE} "EnumerationContext" ; export CONTEXT=${PVALUE}
   grep 'PullResponse' ${RESPONSEFILE} 2>&1 >/dev/null
@@ -203,7 +213,17 @@ ${WSENVELOPEHEADER}
 EOF
   fNormalizeXML ${REQUESTFILE}
   fDumpRequestFile
+  echo "wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE}" >>${LOGFILE}
   wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+
+  ## check bug where server is sending HTTP/1.1 chunks when wget only supports HTTP/1.0 (RFC 2145)
+  grep ' chunk length ' ${RESPONSEFILE} >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    ## try to remove chunk junk
+    /bin/mv -f ${RESPONSEFILE} tmpfile
+    cat tmpfile | sed 's/^[0-9]*\; chunk length [0-9]*//' | tr -d "\n" | tr -d "\r" | sed 's/[0-9]*$//' >${RESPONSEFILE}
+  fi
+
   fNormalizeXML ${RESPONSEFILE}
   unset CONTEXT ; fGetValueOf ${RESPONSEFILE} "EnumerationContext" ; export CONTEXT=${PVALUE}
   grep 'EnumerateResponse' ${RESPONSEFILE} 2>&1 >/dev/null
@@ -253,11 +273,11 @@ EOF`
   CLASS="http://schemas.dmtf.org/wbem/wscim/1/*"
 fi
 
-echo "NOTE: Enumerate operation may take time to reply."
+[ ${OUTLEVEL} -ge 3 ] && echo "NOTE: Enumerate operation may take time to reply."
 doenumerate
 
 /bin/cp ${RESPONSEFILE} ${RETURNFILE}
-echo "Output is saved to ${RETURNFILE}"
+[ ${OUTLEVEL} -ge 3 ] && echo "Output is saved to ${RETURNFILE}"
 exit ${STAT}
 
 # ###########################################################################

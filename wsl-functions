@@ -35,9 +35,16 @@
 MYPATH=${0%/*}
 
 MYCONFIG=".wsl-config"
+
+ENVOUTLEVEL=$OUTLEVEL
+ENVIPINTERACTIVE=$IPINTERACTIVE
+
 [ -e ${MYPATH}/${MYCONFIG} ] && . ${MYPATH}/${MYCONFIG}
 [ -e ~/${MYCONFIG} ] && . ~/${MYCONFIG}
 [ -e ./${MYCONFIG} ] && . ./${MYCONFIG}
+
+[ ! -z "$ENVOUTLEVEL" ] && OUTLEVEL=$ENVOUTLEVEL
+[ ! -z "$ENVIPINTERACTIVE" ] && IPINTERACTIVE=$ENVIPINTERACTIVE
 
 # **************************************************************
 # *****                                                    *****
@@ -49,8 +56,8 @@ if [ ! -e ~/${MYCONFIG} ]; then
 cat <<EOF > ~/${MYCONFIG}
 ## NOTE: This is a generated file. See the accompanying README file for more info.
 
-## Timeout in seconds waiting for response. { 1...600} Default is 60.
-#WGETTIMEOUTSECS=60
+## Timeout in seconds waiting for response. { 1...600} Default is 180.
+#WGETTIMEOUTSECS=180
 
 ## Number of retry when there is no response. { 1...6 } Default is 1.
 #WGETTRYNUM=1
@@ -68,10 +75,13 @@ cat <<EOF > ~/${MYCONFIG}
 #WSDEFAULTSCHEMA="schemas.dell.com"
 
 ## Interactive level: 0=NoAsk, 1=AskIPAddress, 2=AskIPandCredential. Default is 0.
-#IPINTERACTIVE=0
+#IPINTERACTIVE=1
 
 ## Remember IP address and user credential. Default is keep history. Uncomment var to prevent history use.
 #KEEPHISTORY=0
+
+## Show history when asking for an environment variable input. Undefined or 0 = no show, 1 show. Default is no show.
+#SHOWHISTORY=1
 
 ## Display date-time stamp. Default is disabled.
 #DATETIMESTAMP=true
@@ -80,7 +90,7 @@ cat <<EOF > ~/${MYCONFIG}
 #FORMATDISPLAY=true
 
 ## Output level: 0=NoOutput, 1=ResponseOnly, 2=AddRequest, 3=AddMore. Default is 1.
-#OUTLEVEL=1
+#OUTLEVEL=2
 
 ## Output directory. Default is current directory.
 #OUTPREFIX=.
@@ -90,6 +100,9 @@ cat <<EOF > ~/${MYCONFIG}
 
 ## Result XML filename. Default=$OUTPREFIX/response.xml
 #RETURNFILE="\$OUTPREFIX/response.xml"
+
+## Echo back the command to console for debug purpose. Default is disabled.
+#ECHOCMD=true
 
 EOF
 fi
@@ -113,6 +126,7 @@ MYVERSION="0.1.5"
 
 [ -z "${OUTLEVEL}" ] && OUTLEVEL=1
 [ -z "${KEEPHISTORY}" ] && KEEPHISTORY=1
+[ -z "${SHOWHISTORY}" ] && SHOWHISTORY=0
 [ -z "${OUTPREFIX}" ] && OUTPREFIX=.
 [ -z "${LOGFILE}" ] && LOGFILE=${OUTPREFIX}/log.txt
 [ -z "${RETURNFILE}" ] && RETURNFILE=${OUTPREFIX}/response.xml
@@ -153,13 +167,15 @@ EOF
 }
 
 CommonUsage1=`cat <<EOF
+Output will be saved to ${RETURNFILE}.
+
 Requires: wget, xmllint, GNU core utilities.
 Optional: xsltproc for output formatting, gpg for encrypted credential.
 EOF`
 
 fInitWGET() {
   if [ -z "${WGETTIMEOUTSECS}" ] || [ ` echo "${WGETTIMEOUTSECS}" | grep "^[0-9]\{1,\}$" >/dev/null ; echo $? | grep -v '^0$' ` ]; then
-    WGETTIMEOUTSECS=60
+    WGETTIMEOUTSECS=180
   else
     [ ${WGETTIMEOUTSECS} -lt 1 ] && WGETTIMEOUTSECS=1
     [ ${WGETTIMEOUTSECS} -gt 600 ] && WGETTIMEOUTSECS=600
@@ -175,7 +191,7 @@ fInitWGET() {
 
 fInitEnum() {
   if [ ! -z "${WSENUMMAXELEM}" ]; then
-    if [ ` echo "${WSENUMMAXELEM}" | grep "^[0-9]\{1,\}$" >/dev/null ; echo $? | grep 0 ` ]; then
+    if [ ` echo "${WSENUMMAXELEM}" | grep "^[0-9]\{1,\}$" >/dev/null ; echo $? | grep -v 0 ` ]; then
       WSENUMMAXELEM=512
     else
       [ ${WSENUMMAXELEM} -lt 1 ] && WSENUMMAXELEM=1
@@ -233,10 +249,16 @@ fPromptUser() {
    temp=
    if [ ! "${AlwaysAsk}" = "0" -o "${default}." = "." ]; then
       if [ "${default}." = "." -o ! "${WSDONTASK}" = "y" ]; then
+         if [ -e "${MYENV}" ] && [ "1" = "${SHOWHISTORY}" ]; then
+            echo -e "\nPrevious Values:"
+            grep "${Arg}" ${MYENV} | cut -d'=' -f2 | sed 's/"//g' | uniq | sort
+            echo
+         fi
          while [ "${temp}." = "." ]; do
             read ${Len} -p "${Question} (ENTER for default: ${default}) ? " temp
             [ -z "${temp}" ] && temp=${default}
          done
+         temp=$(echo ${temp} | sed 's/^"//' | sed 's/"$//')
          export ${Arg}="${temp}"
       else
          temp=${default}
