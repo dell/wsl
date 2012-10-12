@@ -3,13 +3,10 @@ Version:	1.0.0
 Release:	1%{?dist}
 Summary:	Wsman Shell Command Line "whistle"
 
-Group:		System/Management
+Group:		Applications/System
 License:	BSD
 URL:		http://linux.dell.com/files/%{name}
 Source0:	http://linux.dell.com/files/%{name}/%{name}-%{version}.tar.gz
-BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
-
-Vendor:		Dell Inc.
 
 Requires:	bash wget libxml2
 Requires:	gpg
@@ -26,11 +23,10 @@ CIM-style objects.
 %prep
 %setup -q
 
-
+%build
 
 
 %install
-rm -rf $RPM_BUILD_ROOT
 
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/%{name}
 install -m 644 %{_builddir}/%{name}-%{version}/wsl-functions $RPM_BUILD_ROOT/%{_sysconfdir}/%{name}
@@ -49,29 +45,36 @@ install -m 755 %{_builddir}/%{name}-%{version}/wslput $RPM_BUILD_ROOT/%{_bindir}
 install -m 755 %{_builddir}/%{name}-%{version}/wxmlgetvalue $RPM_BUILD_ROOT/%{_bindir}
 
 
-mkdir -p $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
-install -m 644 %{_builddir}/%{name}-%{version}/LICENSE $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
-install -m 644 %{_builddir}/%{name}-%{version}/README-wsl $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
-install -m 644 %{_builddir}/%{name}-%{version}/VERSION $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
-install -m 644 %{_builddir}/%{name}-%{version}/wsl-config $RPM_BUILD_ROOT%{_defaultdocdir}/%{name}-%{version}
+
+mkdir -p $RPM_BUILD_ROOT%{_mandir}/man1
+install -m 644 %{_builddir}/%{name}-%{version}/wsl.1 $RPM_BUILD_ROOT%{_mandir}/man1
 
 
-
-%clean
-rm -rf $RPM_BUILD_ROOT
 
 
 %files
-%defattr(-,root,root,-)
 %{_bindir}/*
 %{_sysconfdir}/%{name}
 
-%doc
-%{_defaultdocdir}/%{name}-%{version}
+
+%doc LICENSE README-wsl VERSION wsl-config
+%{_mandir}/man1/%{name}.1.*
+
 
 
 
 %changelog
+* Mon Oct  8 2012 Praveen K Paladugu <praveen_paladugu@dell.com> - 0.1.8-2
+- Removing the explicit installation of the doc files as the %doc macro will handle the same
+- Not zipping the man file, as the package build will handle it.
+
+* Mon Oct  8 2012 Praveen K Paladugu <praveen_paladugu@dell.com>- 0.1.8-1
+- Minor changes to spec file, following Fedora reviewer's suggestions.
+
+
+* Tue Oct  2 2012 Chris Poblete <chris_poblete@dell.com> - 0.1.7c-1
+- Added a man page for wsl
+
 * Tue Sep 25 2012 Chris Poblete <chris_poblete@dell.com> - 0.1.0-1
 - initial version of WSL.
 
