@@ -53,8 +53,14 @@ ENVIPINTERACTIVE=$IPINTERACTIVE
 # **************************************************************
 
 if [ ! -e ~/${MYCONFIG} ]; then
-cat <<EOF > ~/${MYCONFIG}
-## NOTE: This is a generated file. See the accompanying README file for more info.
+  DRIVER="#USEWGET=true"
+  which curl 2>/dev/null >/dev/null
+  [ $? -ne 0 ] && DRIVER="USEWGET=true"
+
+  cat <<EOF > ~/${MYCONFIG}
+### NOTE: This is a generated file. See the accompanying README file for more info.
+### Comment the line to (1) use the default or (2) set to disabled.
+
 
 ## Timeout in seconds waiting for response. { 1...600} Default is 180.
 #WGETTIMEOUTSECS=180
@@ -65,11 +71,17 @@ cat <<EOF > ~/${MYCONFIG}
 ## Use HTTP connection. Default is use HTTPS. Uncomment var for HTTP.
 #WSNOSSL=true
 
-## Optimized enumeration, required for WSENUMMAXELEM. Default is non-optimized. Uncomment var for optmized.
+## Optimized enumeration, required for WSENUMMAXELEM. Default is none specified (none optimized).
 #WSENUMOPTIMIZE=true
 
 ## Max number of instances in a response. { 1...1048576 } Default is 512.
 #WSENUMMAXELEM=512
+
+## WSMAN operation timeout in seconds. Default is none specified.
+#WSOPERATIONTIMEOUT=360
+
+## WSMAN maximum SOAP envelope size the client is willing to accept. Default is none specified.
+#WSMAXENVELOPESIZE=32767
 
 ## Schema prefix used for non-DMTF class. Default is "schemas.dell.com"
 #WSDEFAULTSCHEMA="schemas.dell.com"
@@ -95,14 +107,17 @@ cat <<EOF > ~/${MYCONFIG}
 ## Output directory. Default is current directory.
 #OUTPREFIX=.
 
-## Log filename. Default is $OUTPREFIX/log.txt
-#LOGFILE="\$OUTPREFIX/log.txt"
+## Log filename. Default is log.txt
+#LOGFILE="log.txt"
 
-## Result XML filename. Default=$OUTPREFIX/response.xml
-#RETURNFILE="\$OUTPREFIX/response.xml"
+## Result XML filename. Default response.xml
+#RETURNFILE="response.xml"
 
 ## Echo back the command to console for debug purpose. Default is disabled.
 #ECHOCMD=true
+
+## CURL has HTTP1.1 support while WGET is widely available. Default is CURL
+${DRIVER}
 
 EOF
 fi
@@ -128,14 +143,31 @@ MYVERSION="0.1.5"
 [ -z "${KEEPHISTORY}" ] && KEEPHISTORY=1
 [ -z "${SHOWHISTORY}" ] && SHOWHISTORY=0
 [ -z "${OUTPREFIX}" ] && OUTPREFIX=.
-[ -z "${LOGFILE}" ] && LOGFILE=${OUTPREFIX}/log.txt
-[ -z "${RETURNFILE}" ] && RETURNFILE=${OUTPREFIX}/response.xml
+[ -z "${LOGFILE}" ] && LOGFILE="log.txt"
+[ -z "${RETURNFILE}" ] && RETURNFILE="response.xml"
 [ -z "${WSDEFAULTSCHEMA}" ] && WSDEFAULTSCHEMA="schemas.dell.com"
+[ -z "${RTFILEPREFIX}" ] && RTFILEPREFIX="${WSENDPOINT}"
 
-export MYENV=${OUTPREFIX}/.wslrun
 export URIDEFAULT="http://${WSDEFAULTSCHEMA}/wbem/wscim/1/cim-schema/2"
 export URIDMTF="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2"
 export WSENVELOPEHEADER='<?xml version="1.0"?><s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsman="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" xmlns:wsen="http://schemas.xmlsoap.org/ws/2004/09/enumeration">'
+
+# complete pathfilenames
+if [ -z "${SETFLAG1}" ]; then
+  export SETFLAG1=1
+  export LOGFILE="${OUTPREFIX}/${LOGFILE}"
+  export RETURNFILE="${OUTPREFIX}/${RETURNFILE}"
+  export MYENV="${OUTPREFIX}/.wslrun"
+fi
+
+# if defined, add uniqueness in generated files to allow parallel executions in same directory
+if [ ! -z "${RTFILEPREFIX}" ] && [ -z "${SETFLAG2}" ]; then
+  export SETFLAG2=1
+  export RTFILEPREFIX="${RTFILEPREFIX}-"
+  export LOGFILE=$( echo ${LOGFILE} | sed -e "s/\(.*\)\//\1\/${RTFILEPREFIX}/" )
+  export RETURNFILE=$( echo ${RETURNFILE} | sed -e "s/\(.*\)\//\1\/${RTFILEPREFIX}/" )
+  export MYENV=$( echo ${MYENV} | sed -e "s/\(.*\)\./\.${RTFILEPREFIX}/" )
+fi
 
 [ ! -z "${DATETIMESTAMP}" ] && [ ${OUTLEVEL} -ge 3 ] && date
 
@@ -167,10 +199,13 @@ EOF
 }
 
 CommonUsage1=`cat <<EOF
-Output will be saved to ${RETURNFILE}.
+Output will be saved to ${RETURNFILE}. If you want to run parallel 
+executions in the same directory, define RTFILEPREFIX in the environment. 
+Doing so may significantly increase files generated.
 
-Requires: wget, xmllint, GNU core utilities.
+Requires: curl, xmllint, GNU core utilities.
 Optional: xsltproc for output formatting, gpg for encrypted credential.
+Optional: wget as alternate for curl when not available. 
 EOF`
 
 fInitWGET() {
@@ -187,6 +222,14 @@ fInitWGET() {
     [ ${WGETTRYNUM} -lt 1 ] && WGETTRYNUM=1
     [ ${WGETTRYNUM} -gt 6 ] && WGETTRYNUM=6
   fi
+  unset WSOPT_OPERATIONTIMEOUT
+  if [ ! -z "${WSOPERATIONTIMEOUT}" ]; then
+    WSOPT_OPERATIONTIMEOUT="<wsman:OperationTimeout>PT${WSOPERATIONTIMEOUT}.000S</wsman:OperationTimeout>"
+  fi
+  unset WSOPT_WSMAXENVELOPESIZE
+  if [ ! -z "${WSMAXENVELOPESIZE}" ]; then
+    WSOPT_WSMAXENVELOPESIZE="<wsman:MaxEnvelopeSize s:mustUnderstand=\"true\">${WSMAXENVELOPESIZE}</wsman:MaxEnvelopeSize>"
+  fi
 }
 
 fInitEnum() {
@@ -200,7 +243,7 @@ fInitEnum() {
   fi
 
   if [ ! -z "${WSENUMOPTIMIZE}" ]; then
-    WSENUMOPTIMIZEDSTR="<wsman:OptimizeEnumeration/>"
+    WSENUMOPTIMIZEDSTR="<wsman:OptimizeEnumeration />"
     if [ ! -z "${WSENUMMAXELEM}" ]; then 
       WSENUMMAXELEMSTR="<wsman:MaxElements>${WSENUMMAXELEM}</wsman:MaxElements>"
       WSPULLMAXELEMSTR="<wsen:MaxElements>${WSENUMMAXELEM}</wsen:MaxElements>"
@@ -297,9 +340,12 @@ fGetCredFileContents() {
 
 fSetWGET() {
   WSIP=${WSENDPOINT}
+  WSCACERT="${WSENDPOINT}.crt"
   `echo ${WSIP} | grep ':' >/dev/null 2>&1` || WSIP="${WSIP}:443"
   XPORT="https"
   CERTCHECK="--no-check-certificate"
+  [ -z "${USEWGET}" ] && CERTCHECK="--insecure"
+  [ -f ${WSCACERT} ] && CERTCHECK="--cacert ${WSCACERT}"
   [ ! -z "${WSNOSSL}" ] && XPORT="http" && unset CERTCHECK
   [ -z "${WSENCODE}" ] && WSENCODE="utf-8"
   export BURL="${XPORT}://${WSIP}/wsman"
@@ -310,15 +356,36 @@ fSetWGET() {
     WSUSER=$(echo "${CREDPAIR}" | awk '{print $1}')
     WSPASS=$(echo "${CREDPAIR}" | awk '{print $2}')
   fi
-  export WGOPT="${BURL} ${CERTCHECK} --http-user=${WSUSER} --http-password=${WSPASS} --timeout=${WGETTIMEOUTSECS} --tries=${WGETTRYNUM} --header=Content-Type:application/soap+xml\;charset=${WSENCODE}"
+  export WGOPT="${BURL} ${CERTCHECK} --http-user=${WSUSER} --http-password=${WSPASS} --timeout=${WGETTIMEOUTSECS} --tries=${WGETTRYNUM} --header='Content-Type: application/soap+xml;charset=${WSENCODE}' "
+  [ -z "${USEWGET}" ] && export WGOPT="${BURL} ${CERTCHECK} --user ${WSUSER}:${WSPASS} --retry ${WGETTRYNUM} --connect-timeout ${WGETTIMEOUTSECS} -H 'Content-Type: application/soap+xml;charset=${WSENCODE}' "
   unset WSPASS
   #[ ${OUTLEVEL} -ge 3 ] && echo "using: ${WGOPT}"
+
+
+  export WSCOMMONHEADER=`cat <<EOF
+<wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+${WSOPT_WSMAXENVELOPESIZE}
+${WSOPT_OPERATIONTIMEOUT}
+EOF`
+}
+
+fSendRequest() {
+  ECHOSUB="${LOGFILE}"
+  [ ${OUTLEVEL} -ge 3 ] && ECHOSUB="/dev/stdout"
+
+  if [ ! -z "${USEWGET}" ]; then
+    echo "wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE}" >>${ECHOSUB}
+    sh --norc -c "wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1"
+  else
+    echo  "curl ${WGOPT} -d @${REQUESTFILE} -o ${RESPONSEFILE}" >>${ECHOSUB}
+    sh --norc -c "curl ${WGOPT} -d @${REQUESTFILE} -o ${RESPONSEFILE}  >>${LOGFILE} 2>&1"
+  fi
 }
 
 fReqRspNext() {
    RRINDEX=$((RRINDEX + 1))
-   export REQUESTFILE="${OUTPREFIX}/request-${RRINDEX}.xml"
-   export RESPONSEFILE="${OUTPREFIX}/response-${RRINDEX}.xml"
+   export REQUESTFILE="${OUTPREFIX}/${RTFILEPREFIX}request-${RRINDEX}.xml"
+   export RESPONSEFILE="${OUTPREFIX}/${RTFILEPREFIX}response-${RRINDEX}.xml"
    cat /dev/null >${REQUESTFILE}
    cat /dev/null >${RESPONSEFILE}
 }
@@ -330,12 +397,6 @@ fDumpRequestFile() {
     $WSCOLORNORM
     [ ! -z "${DATETIMESTAMP}" ] && [ ${OUTLEVEL} -ge 3 ] && date
   fi
-}
-
-fGetValueOf() {
-  file=$1; shift
-  fSearchValueOf ${file} 0 $@
-  return
 }
 
 fSearchValueOf() {
@@ -368,6 +429,24 @@ fSearchValueOf() {
       fi
     fi
   done < "${file}"
+}
+
+fGetFlatValueOfSingle() {
+  # Use this instead of fGetValueOf if you want to search for a single item without regard to hierarchy
+  # Specify "N" to index to locate the last occurance
+  file=$1
+  sindex=$2
+  key=$3 
+
+  sedpat="${sindex}p"
+  [ "${sindex}" = "N" ] && sedpat='$p'
+  export PVALUE=$( grep ":${key}" ${file} | sed -n ${sedpat} | cut -d'>' -f2 | cut -d'<' -f1 )
+}
+
+fGetValueOf() {
+  file=$1; shift
+  fSearchValueOf ${file} 0 $@
+  return
 }
 
 fGetInstanceToFile() {
@@ -437,9 +516,9 @@ fNormalizeXML() {
   if [ -s "${xml}" ]; then
     grep 'soap-envelope' ${xml} >/dev/null 2>&1
     if [ "$?" -eq "0" ]; then
-      tmp="${OUTPREFIX}/xform.xml"
-      cat "${xml}" | xmllint --format - >"${tmp}"
-      /bin/mv "${tmp}" "${xml}"
+      tmp="${OUTPREFIX}/${RTFILEPREFIX}xform.xml"
+      /bin/mv "${xml}" "${tmp}"
+      cat "${tmp}" | xmllint --format - >"${xml}"
     else
       echo "file ${xml} is not in SOAP format, check the file and ${LOGFILE}."
     fi 
@@ -460,11 +539,20 @@ fNormalizeClass() {
   fi
 }
 
-fCheckReqsOrUsage() {
+fCheckReqOrUsage() {
   name="$1"
   which ${name} 2>/dev/null >/dev/null
-  [ $? -ne 0 ] && echo -e "Failed to detect ${name}!!! This is a runtime requirement, verify installation and try again.\n" && usage
+  [ $? -ne 0 ] && echo -e "Failed to detect ${name}! This is a runtime requirement, verify installation and try again.\n" && usage
 }
+
+fCheckReqsOrUsage() {
+  if [ ! -z "${USEWGET}" ]; then
+    fCheckReqOrUsage wget
+  else
+    fCheckReqOrUsage curl
+  fi
+  fCheckReqOrUsage xmllint
+} 
 
 XsLTSTAT=1 ; which xsltproc 2>&1 >/dev/null ; XsLTSTAT=$?
 

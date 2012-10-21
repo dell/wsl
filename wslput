@@ -62,8 +62,7 @@ EOF
   exit 1
 }
 
-which wget 2>&1 >/dev/null; [ $? -ne 0 ] && usage
-which xmllint 2>&1 >/dev/null; [ $? -ne 0 ] && usage
+fCheckReqsOrUsage
 
 [ $# -lt 2 ] && usage
 NameList=()
@@ -110,7 +109,7 @@ dopullX() {
 ${WSENVELOPEHEADER}
   <s:Header>
     <wsa:Action s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/enumeration/Pull</wsa:Action>
-    <wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+    ${WSCOMMONHEADER}
     <wsman:ResourceURI s:mustUnderstand="true">${CLASS}</wsman:ResourceURI>
     <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
     <wsa:ReplyTo>
@@ -127,9 +126,9 @@ ${WSENVELOPEHEADER}
 EOF
   fNormalizeXML ${REQUESTFILE}
   fDumpRequestFile
-  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fSendRequest
   fNormalizeXML ${RESPONSEFILE}
-  unset CONTEXT ; fGetValueOf ${RESPONSEFILE} "EnumerationContext" ; export CONTEXT=${PVALUE}
+  unset CONTEXT ; fGetFlatValueOfSingle ${RESPONSEFILE} N "EnumerationContext" ; export CONTEXT=${PVALUE}
   grep 'PullResponse' ${RESPONSEFILE} 2>&1 >/dev/null
   export STAT=$?
 }
@@ -141,7 +140,7 @@ doenumerateX() {
 ${WSENVELOPEHEADER}
   <s:Header>
     <wsa:Action s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/enumeration/Enumerate</wsa:Action>
-    <wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+    ${WSCOMMONHEADER}
     <wsman:ResourceURI s:mustUnderstand="true">${CLASS}</wsman:ResourceURI>
     <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
     <wsa:ReplyTo>
@@ -161,9 +160,9 @@ ${WSENVELOPEHEADER}
 EOF
   fNormalizeXML ${REQUESTFILE}
   fDumpRequestFile
-  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fSendRequest
   fNormalizeXML ${RESPONSEFILE}
-  unset CONTEXT ; fGetValueOf ${RESPONSEFILE} "EnumerationContext" ; export CONTEXT=${PVALUE}
+  unset CONTEXT ; fGetFlatValueOfSingle ${RESPONSEFILE} N "EnumerationContext" ; export CONTEXT=${PVALUE}
   grep 'EnumerateResponse' ${RESPONSEFILE} 2>&1 >/dev/null
   export STAT=$?
 }
@@ -185,7 +184,7 @@ cat <<EOF >${REQUESTFILE}
 ${WSENVELOPEHEADER}
   <s:Header>
     <wsa:Action s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/transfer/Put</wsa:Action>
-    <wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+    ${WSCOMMONHEADER}
     <wsman:ResourceURI s:mustUnderstand="true">${RURI}</wsman:ResourceURI>
     <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
     ${FRAGMENTXFER}
@@ -201,7 +200,7 @@ ${WSENVELOPEHEADER}
 EOF
   fNormalizeXML ${REQUESTFILE}
   fDumpRequestFile
-  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fSendRequest
   fNormalizeXML ${RESPONSEFILE}
   grep "_OUTPUT" ${RESPONSEFILE} 2>&1 >/dev/null
   export STAT=$?

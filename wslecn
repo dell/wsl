@@ -50,8 +50,7 @@ EOF
   exit 1
 }
 
-which wget 2>&1 >/dev/null; [ $? -ne 0 ] && usage
-which xmllint 2>&1 >/dev/null; [ $? -ne 0 ] && usage
+fCheckReqsOrUsage
 
 [ $# -lt 1 ] && usage
 [ "$1" = "-h" -o "$1" = "-help" -o "$1" = "help" ] && usage
@@ -68,7 +67,7 @@ cat <<EOF >${REQUESTFILE}
 <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsman="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" xmlns:n1="http://schemas.openwsman.org/wbem/wscim/1/intrinsic">
   <s:Header>
     <wsa:Action s:mustUnderstand="true">http://schemas.openwsman.org/wbem/wscim/1/intrinsic/EnumerateClassNames</wsa:Action>
-    <wsa:To s:mustUnderstand="true">${BURL}</wsa:To>
+    ${WSCOMMONHEADER}
     <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
     <wsman:ResourceURI s:mustUnderstand="true">http://schemas.openwsman.org/wbem/wscim/1/intrinsic</wsman:ResourceURI>
     <wsa:ReplyTo>
@@ -82,7 +81,7 @@ cat <<EOF >${REQUESTFILE}
 EOF
   fNormalizeXML ${REQUESTFILE}
   fDumpRequestFile
-  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fSendRequest
   export STAT=$?
 }
 

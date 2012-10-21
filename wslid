@@ -50,8 +50,7 @@ EOF
   exit 1
 }
 
-which wget 2>&1 >/dev/null; [ $? -ne 0 ] && usage
-which xmllint 2>&1 >/dev/null; [ $? -ne 0 ] && usage
+fCheckReqsOrUsage
 
 [ $# -lt 1 ] && usage
 [ "$1" = "-h" -o "$1" = "-help" -o "$1" = "help" ] && usage
@@ -73,7 +72,7 @@ cat <<EOF >${REQUESTFILE}
 EOF
   fNormalizeXML ${REQUESTFILE}
   fDumpRequestFile
-  wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1
+  fSendRequest
   export STAT=$?
 }
 

@@ -8,7 +8,7 @@ License:	BSD
 URL:		http://linux.dell.com/files/%{name}
 Source0:	http://linux.dell.com/files/%{name}/%{name}-%{version}.tar.gz
 
-Requires:	bash wget libxml2
+Requires:	bash curl libxml2
 Requires:	gpg
 BuildArch:	noarch
 
