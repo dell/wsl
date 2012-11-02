@@ -40,9 +40,23 @@ MYNAME=`basename $0`
 usage() {
   fUsageheader
   cat <<EOF
-USAGE: $MYNAME check
+USAGE: $MYNAME ( check | getclass CLASSNAME | getallclass )
 
-Sends SOAP message with WS-MAN IDENTIFY command. 
+Sends SOAP message with WS-MAN INVOKE on methods that query registered
+CIM class names and acquire Class definition.
+
+check
+This command invokes the EnumerateClassNames intrinsic method that returns 
+a list of all registered CIM classes.
+
+getclass CLASSNAME
+This command invokes the GetClass intrinsic method given the class name
+returns the class definition.
+
+getallclass
+This command invokes the GetClass intrinsic method for each class name
+in the list returned from invoking EnumerateClassNames returning class
+definition for each.
 
 ${CommonUsage1}
 EOF
@@ -52,30 +66,30 @@ EOF
 
 fCheckReqsOrUsage
 
-[ $# -lt 1 ] && usage
-[ "$1" = "-h" -o "$1" = "-help" -o "$1" = "help" ] && usage
-
-# initializations
-fGetTarget
-fSetWGET
-
-doecn() {
-  fGetUUID
+doinit() {
+  fGetTarget
+  fSetWGET
   fReqRspNext
+}
+
+dogetclass() {
+  gcclassname="$1"
+  fGetUUID
+  resourceuri="http://schemas.openwsman.org/wbem/wscim/1/intrinsic/${gcclassname}"
 cat <<EOF >${REQUESTFILE}
 <?xml version="1.0"?>
-<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsman="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" xmlns:n1="http://schemas.openwsman.org/wbem/wscim/1/intrinsic">
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsman="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" xmlns:n1="${resourceuri}">
   <s:Header>
-    <wsa:Action s:mustUnderstand="true">http://schemas.openwsman.org/wbem/wscim/1/intrinsic/EnumerateClassNames</wsa:Action>
+    <wsa:Action s:mustUnderstand="true">${resourceuri}/GetClass</wsa:Action>
     ${WSCOMMONHEADER}
     <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
-    <wsman:ResourceURI s:mustUnderstand="true">http://schemas.openwsman.org/wbem/wscim/1/intrinsic</wsman:ResourceURI>
+    <wsman:ResourceURI s:mustUnderstand="true">${resourceuri}</wsman:ResourceURI>
     <wsa:ReplyTo>
       <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
     </wsa:ReplyTo>
   </s:Header>
   <s:Body>
-    <n1:EnumerateClassNames_INPUT/>
+    <n1:GetClass_INPUT />
   </s:Body>
 </s:Envelope>
 EOF
@@ -83,13 +97,85 @@ EOF
   fDumpRequestFile
   fSendRequest
   export STAT=$?
+  fNormalizeXML ${RESPONSEFILE}
 }
 
-doecn
-fNormalizeXML ${RESPONSEFILE}
-fDisplayResponse ${RESPONSEFILE}
+dogetallclass() {
+  ecnfile="$1"
+  indexfile="index.html"
+  echo "<html><title>List of Class definitions from ${WSIP}</title><body><br/>" > ${indexfile}
+  grep ':name>' ${ecnfile} | cut -d'>' -f2 | cut -d ':' -f2 | cut -d'<' -f1 | sort | uniq > ecnfile.xml
+  total=$( cat ecnfile.xml | wc -l )
+  count=1
+  fReqRspNext
+  while read -e line ; do
+    echo -en "${count} of ${total} -> "
+    dogetclass "${line}"
+    echo "${line}-def.xml"
+    /bin/mv ${RESPONSEFILE} ${line}-def.xml
+    cat <<EOF >>${indexfile}
+<a href="${line}-def.xml">${line}</a><br/>
+EOF
+    count=$((count + 1))
+  done < ecnfile.xml
+  echo "</body></html>" >>${indexfile}
+}
 
-/bin/cp ${RESPONSEFILE} ${RETURNFILE}
+doecn() {
+  fGetUUID
+  resourceuri="http://schemas.openwsman.org/wbem/wscim/1/intrinsic"
+cat <<EOF >${REQUESTFILE}
+<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsman="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" xmlns:n1="${resourceuri}">
+  <s:Header>
+    <wsa:Action s:mustUnderstand="true">${resourceuri}/EnumerateClassNames</wsa:Action>
+    ${WSCOMMONHEADER}
+    <wsa:MessageID s:mustUnderstand="true">${UUID}</wsa:MessageID>
+    <wsman:ResourceURI s:mustUnderstand="true">${resourceuri}</wsman:ResourceURI>
+    <wsa:ReplyTo>
+      <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
+    </wsa:ReplyTo>
+  </s:Header>
+  <s:Body>
+    <n1:EnumerateClassNames_INPUT />
+  </s:Body>
+</s:Envelope>
+EOF
+  fNormalizeXML ${REQUESTFILE}
+  fDumpRequestFile
+  fSendRequest
+  export STAT=$?
+  fNormalizeXML ${RESPONSEFILE}
+}
+
+[ $# -lt 1 ] && usage
+while [ ! -z "$1" ]; do
+  case "$1" in
+    -h|-help|help|--help ) usage
+      ;;
+    check ) shift; 
+      doinit
+      doecn
+      fDisplayResponse ${RESPONSEFILE}
+      /bin/cp ${RESPONSEFILE} ${RETURNFILE}
+      ;;
+    getclass ) shift; [ -z "$1" ] && usage
+      doinit
+      dogetclass "$1"
+      fDisplayResponse ${RESPONSEFILE}
+      /bin/cp ${RESPONSEFILE} ${RETURNFILE}
+      ;;
+    getallclass ) shift; 
+      doinit
+      doecn
+      dogetallclass "${RESPONSEFILE}"
+      ;;
+    * ) usage
+      ;;
+  esac
+  shift
+done
+
 [ ${OUTLEVEL} -ge 3 ] && echo "Output is saved to ${RETURNFILE}"
 exit ${STAT}
 

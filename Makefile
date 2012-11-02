@@ -48,5 +48,5 @@ standalonepack: standalonepackclean
 	cat wsl-functions | sed "s/MYVERSION=\"0.1.5\"/MYVERSION=\"${version}\"/" > ${standalonesrc}/wsl-functions
 	chmod go-w ${standalonesrc}/* 
 	tar -C ${packagesrc} -cvjf ${packagedest}/${packagename}.tbz ${standalonedir}
-	zip -u ${packagedest}/${myname}.zip ${packagedest}/${packagename}.tbz 
+	cd ${packagedest} && /bin/rm -f ${myname}.zip && zip ${myname}.zip ${packagename}.tbz
 

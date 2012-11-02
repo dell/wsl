@@ -32,6 +32,13 @@
 # Version: 1.0.0
 # ###########################################################################
 
+
+# **********************************************************************
+# ***                                                                ***
+# *** Define "WSLNOINIT" to source this file without initializations ***
+# ***                                                                ***
+# **********************************************************************
+
 MYPATH=${0%/*}
 
 MYCONFIG=".wsl-config"
@@ -146,7 +153,7 @@ MYVERSION="0.1.5"
 [ -z "${LOGFILE}" ] && LOGFILE="log.txt"
 [ -z "${RETURNFILE}" ] && RETURNFILE="response.xml"
 [ -z "${WSDEFAULTSCHEMA}" ] && WSDEFAULTSCHEMA="schemas.dell.com"
-[ -z "${RTFILEPREFIX}" ] && RTFILEPREFIX="${WSENDPOINT}"
+#[ -z "${RTFILEPREFIX}" ] && RTFILEPREFIX="${WSENDPOINT}"
 
 export URIDEFAULT="http://${WSDEFAULTSCHEMA}/wbem/wscim/1/cim-schema/2"
 export URIDMTF="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2"
@@ -251,8 +258,8 @@ fInitEnum() {
   fi
 }
 
-fInitWGET
-fInitEnum
+[ -z "${WSLNOINIT}" ] && fInitWGET
+[ -z "${WSLNOINIT}" ] && fInitEnum
 
 unset TIMERSTART
 fTimerInit() {
@@ -357,7 +364,10 @@ fSetWGET() {
     WSPASS=$(echo "${CREDPAIR}" | awk '{print $2}')
   fi
   export WGOPT="${BURL} ${CERTCHECK} --http-user=${WSUSER} --http-password=${WSPASS} --timeout=${WGETTIMEOUTSECS} --tries=${WGETTRYNUM} --header='Content-Type: application/soap+xml;charset=${WSENCODE}' "
-  [ -z "${USEWGET}" ] && export WGOPT="${BURL} ${CERTCHECK} --user ${WSUSER}:${WSPASS} --retry ${WGETTRYNUM} --connect-timeout ${WGETTIMEOUTSECS} -H 'Content-Type: application/soap+xml;charset=${WSENCODE}' "
+  if [ -z "${USEWGET}" ]; then 
+    export WGOPT="${BURL} ${CERTCHECK} --user ${WSUSER}:${WSPASS} --retry ${WGETTRYNUM} --connect-timeout ${WGETTIMEOUTSECS} -H 'Content-Type: application/soap+xml;charset=${WSENCODE}' "
+    [ ${OUTLEVEL} -ge 3 ] && WGOPT="${WGOPT} -D - "
+  fi
   unset WSPASS
   #[ ${OUTLEVEL} -ge 3 ] && echo "using: ${WGOPT}"
 
@@ -375,10 +385,10 @@ fSendRequest() {
 
   if [ ! -z "${USEWGET}" ]; then
     echo "wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE}" >>${ECHOSUB}
-    sh --norc -c "wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1"
+    bash --norc -c "wget ${WGOPT} --post-file=${REQUESTFILE} --output-document=${RESPONSEFILE} >>${LOGFILE} 2>&1"
   else
     echo  "curl ${WGOPT} -d @${REQUESTFILE} -o ${RESPONSEFILE}" >>${ECHOSUB}
-    sh --norc -c "curl ${WGOPT} -d @${REQUESTFILE} -o ${RESPONSEFILE}  >>${LOGFILE} 2>&1"
+    bash --norc -c "curl ${WGOPT} -d @${REQUESTFILE} -o ${RESPONSEFILE}  >>${LOGFILE} 2>&1"
   fi
 }
 
@@ -583,7 +593,7 @@ fGetTarget() {
   [ $? -ne 0 ] && fPromptUser $askB WSPASS "User password"
 }
 
-if [ "1" = "${KEEPHISTORY}" ]; then
+if [ -z "${WSLNOINIT}" ] && [ "1" = "${KEEPHISTORY}" ]; then
    [ ${OUTLEVEL} -ge 3 ] && [ -e "${MYENV}" ] && echo "using values in ${MYENV}"
    CWSENDPOINT="${WSENDPOINT}"
    CWSUSER="${WSUSER}"
@@ -604,6 +614,14 @@ export WSPASS="${CWSPASS}"
 EOF
    . ${MYENV}
 fi
+
+fMessageThenExit() {
+  message="$1"
+  exitcode=$2
+
+  echo -e "${message}"
+  exit ${exitcode}
+}
 
 # ###########################################################################
 # End of Code
