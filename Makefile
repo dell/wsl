@@ -34,6 +34,7 @@ rpmspecprep: rpmspecclean
 	cat wsl-functions | sed "s/MYVERSION=\"0.1.5\"/MYVERSION=\"${version}\"/" > ${rpmspecdir}/wsl-functions
 	for item in `ls -1 ${myname}* | grep -v 'wsl-'`; do cat $$item | sed "s/\$${0\%\/\*}\/wsl-functions/\/etc\/wsl\/wsl-functions/" >${rpmspecdir}/$$item ; chmod 755 ${rpmspecdir}/$$item ; done
 	chmod go-w ${rpmspecdir}/*
+	chmod -x ${rpmspecdir}/VERSION
 
 rpmspec: rpmspecprep
 	tar -C ${packagesrc} -cvzf ${packagedest}/${packagename}.tar.gz . --exclude "wsl.spec"
