@@ -32,13 +32,14 @@ rpmspecprep: rpmspecclean
 	-/bin/cp -dv ${myname}* viwsl wxm* LIC* READ* VER* ${rpmspecdir}/
 	cat pkg-${myname}.spec | sed "s/Version:\s*1.0.0/Version:\t${version}/" > ${rpmspecdir}/${myname}.spec
 	cat wsl-functions | sed "s/MYVERSION=\"0.1.5\"/MYVERSION=\"${version}\"/" > ${rpmspecdir}/wsl-functions
-	for item in `ls -1 ${myname}* | grep -v 'wsl-'`; do cat $$item | sed "s/\$${0\%\/\*}\/wsl-functions/\/etc\/wsl\/wsl-functions/" >${rpmspecdir}/$$item ; chmod 755 ${rpmspecdir}/$$item ; done
+	for item in `ls -1 *${myname}*` ; do [ ! -x "$$item" ] && continue ; echo "## updating $$item" ; cat $$item | sed "s/\$${0\%\/\*}\/wsl-functions/\/etc\/wsl\/wsl-functions/" >${rpmspecdir}/$$item ; chmod 755 ${rpmspecdir}/$$item ; done
 	chmod go-w ${rpmspecdir}/*
 	chmod -x ${rpmspecdir}/VERSION
 
 rpmspec: rpmspecprep
 	tar -C ${packagesrc} -cvzf ${packagedest}/${packagename}.tar.gz . --exclude "wsl.spec"
 	/bin/cp ${rpmspecdir}/wsl.spec ${packagedest}
+	@echo -e "\n## NOTICE: See spec and package files at ${packagedest}\n"
 
 standalonepackclean:
 	-/bin/rm -rf ${standalonesrc} >/dev/null 2>&1

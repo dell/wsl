@@ -1,6 +1,6 @@
-## NOTE: Sample config file. 
-## To make use, copy this file to ~/.wsl-config and customize.
-## See the accompanying README file for more info.
+## NOTE: This is a sample only. 
+## Refer to wsl-functions for latest information about the content of this file
+## To make use, copy this file to ~/.wslrc and customize.
 
 ## Timeout in seconds waiting for response. { 1...600} Default is 60.
 #WGETTIMEOUTSECS=60

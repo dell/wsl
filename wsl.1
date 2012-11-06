@@ -67,12 +67,12 @@ A more secure method is to use the light encryption method provided by wsl. See 
 .SH FILES
 
 .TP
-\fB~/.wsl-config\fR
+\fB~/.wslrc\fR
 This file contains custom user-configurable information that could affect the behavior of wsl. If not present, this file is created the firt time wsl is used. Refer to README file for more information.
 
 .TP
 \fB$PWD/.wslrun\fR
-This file contains environment variables that are populated the first time wsl is run and used on subsequent runs. It includes user password so if security is a concern, try to use the encrypted version (see xcred command) or you may turn off creation of this file using the custom user configuration (see .wsl-config).
+This file contains environment variables that are populated the first time wsl is run and used on subsequent runs. It includes user password so if security is a concern, try to use the encrypted version (see xcred command) or you may turn off creation of this file using the custom user configuration (see .wslrc).
 
 .SH COPYRIGHT
 wsl is Copyright (c) 2011, Dell Inc. License: BSD3C or similar

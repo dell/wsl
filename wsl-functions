@@ -41,7 +41,7 @@
 
 MYPATH=${0%/*}
 
-MYCONFIG=".wsl-config"
+MYCONFIG=".wslrc"
 
 ENVOUTLEVEL=$OUTLEVEL
 ENVIPINTERACTIVE=$IPINTERACTIVE
@@ -60,6 +60,7 @@ ENVIPINTERACTIVE=$IPINTERACTIVE
 # **************************************************************
 
 if [ ! -e ~/${MYCONFIG} ]; then
+  # prefer curl over wget
   DRIVER="#USEWGET=true"
   which curl 2>/dev/null >/dev/null
   [ $? -ne 0 ] && DRIVER="USEWGET=true"
@@ -313,7 +314,10 @@ fPromptUser() {
       else
          temp=${default}
       fi
-      [ "1" = "${KEEPHISTORY}" ] && echo export "${Arg}=\"${temp}\"" >>${MYENV}
+      if [ "1" = "${KEEPHISTORY}" ]; then
+        echo export "${Arg}=\"${temp}\"" >>${MYENV}
+        chmod go-rwx ${MYENV}
+      fi
    else
       temp=${default}
    fi
@@ -612,6 +616,7 @@ export WSENDPOINT="${CWSENDPOINT}"
 export WSUSER="${CWSUSER}"
 export WSPASS="${CWSPASS}"
 EOF
+   chmod go-rwx ${MYENV}
    . ${MYENV}
 fi
 

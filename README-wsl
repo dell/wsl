@@ -47,8 +47,8 @@ port of GNU shell environment and tools.
 Each script shall have its own usage help text.
 
 You can customize run-time experience by defining variables in the shell 
-environment or in a "wsl-config" file located in the current or program
-directory.
+environment or in a ".wslrc" file located in the program or user home or
+current directories loaded in this order.
  
 Connection variables:
  USEWGET - Use wget for transmission. Default is curl.
