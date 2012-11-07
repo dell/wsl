@@ -22,7 +22,7 @@ all: standalonepack rpmspec
 
 distclean: rpmspecclean standalonepackclean
 	-/bin/rm -rf ${packagesrc}
-	-/bin/rm response*xml request*.xml log.txt >/dev/null 2>&1 || true
+	-/bin/rm response*xml request*.xml log.txt .wslrun >/dev/null 2>&1 || true
 
 rpmspecclean:
 	-/bin/rm -rf ${rpmspecdir} >/dev/null 2>&1

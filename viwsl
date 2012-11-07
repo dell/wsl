@@ -3,5 +3,14 @@
 # source function library
 . ${0%/*}/wsl-functions
 
-vi ${HOME}/${MYCONFIG}
+case "$1" in
+  -h|--help|help)
+    $WSCOLORERR
+    echo -e "\n`basename $0` - Utility to create and edit ${MYCONFIG} file\n"
+    $WSCOLORNORM
+    exit 1
+    ;;
+esac
+
+vi ~/${MYCONFIG}
 
